@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1119">
+  <meta name="description" content="Your personal film library, collections and statistics.">
+  <title>Film Atlas — Your cinema, catalogued</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <button class="brand" data-nav="library" aria-label="Film Atlas home"><span class="brand-mark">✦</span><span>FILM<span class="brand-accent">ATLAS</span></span></button>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button data-nav="library" class="nav-link active">Library</button>
+        <button data-nav="watchlist" class="nav-link">Watchlist</button>
+        <button data-nav="collections" class="nav-link">Collections</button>
+        <button data-nav="stats" class="nav-link">Statistics</button>
+        <button data-nav="settings" class="nav-link">Settings</button>
+      </nav>
+      <button class="header-add button button-primary" data-action="add">+ Add movie</button>
+    </div>
+  </header>
+  <main id="app" class="layout"></main>
+  <div id="modal-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
+  <footer class="footer">Made for the movies you love · Film metadata from <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>
+  <script src="./app.js" defer></script>
+</body>
+</html>
