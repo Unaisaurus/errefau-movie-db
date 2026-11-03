@@ -17,13 +17,20 @@ A personal film-tracking website inspired by the things you wish Letterboxd coul
 
 Download the project and open `index.html` in a browser. It needs no build step or dependencies.
 
-## Publish with GitHub Pages
+## Deploy with Vercel (required for TMDB integration)
 
-On GitHub, open **Settings → Pages → Build and deployment**. Choose **Deploy from a branch**, `main`, `/ (root)`, then save. After GitHub Pages is enabled, the site is typically hosted at:
+GitHub Pages can serve the static pages but **cannot run the private TMDB proxy**. To use automatic movie metadata, deploy the repository on [Vercel](https://vercel.com/) instead:
 
-`https://unaisaurus.github.io/errefau-movie-db/`
+1. Sign in to Vercel with GitHub and choose **Add New → Project**.
+2. Import `Unaisaurus/errefau-movie-db`.
+3. Select **Other** (no framework), leave build command blank and set output directory to `.` / repository root if requested.
+4. Open the new project's **Settings → Environment Variables**.
+5. Add `TMDB_READ_ACCESS_TOKEN` with the **API Read Access Token** from your TMDB account (not your API key). Add it for **Production** (and Preview if desired).
+6. **Redeploy** the project so the new environment variable takes effect.
+7. Open the Vercel URL, visit Film Atlas **Settings → Automatic movie metadata → Test connection**.
+8. Once it says the connection is working, click **Enrich next 25 films**. Repeat to enrich further batches. Uncertain matches are flagged for manual review; you can open any film and choose **Search TMDB** to pick the correct result.
 
-This is an expected address, **not confirmation the site is deployed yet**.
+Do not enter your secret token directly into the website UI or a GitHub file. TMDB requests go through `api/tmdb.mjs` on Vercel, where the token stays in environment variables. The proxy itself is publicly callable; this is intended as a lightweight personal prototype, not a hardened production authentication/rate-limiting setup.
 
 ## Data and privacy
 
@@ -43,7 +50,7 @@ Reimporting matches films by their Letterboxd URI. It does **not** overwrite edi
 
 ## Planned next steps
 
-- TMDB integration to enrich films with posters, types, cast, crew, studios, production countries, genres and composers.
+- Improve TMDB matching for alternate titles and tricky releases; review uncertain matches in bulk.
 - Progress counters based on relevant filmographies (separate from watchlist-only completion).
 - Better filters, faster bulk editing, film matching review.
 - Private synced database and account sign-in if desired.
