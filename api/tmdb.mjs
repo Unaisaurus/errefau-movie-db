@@ -11,7 +11,22 @@ export default async function handler(req, res) {
   const params = new URL(req.url, "https://film-atlas.invalid").searchParams;
   const mode = params.get("mode");
   let path, query = new URLSearchParams({ language: "en-US" });
-  if (mode === "health") return res.status(200).json({ configured: true });
+  if (mode === "health") {
+    try {
+      const status = await fetch("https://api.themoviedb.org/3/authentication", {
+        headers: { Authorization: "Bearer " + token, Accept: "application/json" },
+        signal: AbortSignal.timeout(11000)
+      });
+      if (!status.ok) return res.status(status.status === 401 ? 401 : 502).json({
+        error: status.status === 401 ? "TMDB rejected the token. Check the API Read Access Token on Vercel." : "TMDB credential check failed."
+      });
+      const body = await status.json();
+      if (body.success !== true) return res.status(502).json({error:"TMDB did not confirm the credentials."});
+      return res.status(200).json({configured:true,verified:true});
+    } catch {
+      return res.status(502).json({error:"Could not reach TMDB to verify credentials."});
+    }
+  }
   if (mode === "search") {
     const term = (params.get("query") || "").trim();
     if (term.length < 2 || term.length > 120) return res.status(400).json({ error: "Search query must be between 2 and 120 characters." });
