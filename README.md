@@ -55,6 +55,12 @@ If a film was originally broadcast in parts but you watched and rated the combin
 
 These manually resolved entries count towards your library and collection statistics (according to the inclusion settings), but are **not yet recognized as watched** in TMDB-person filmography progress, because they have no TMDB movie ID. The enrichment dashboard tracks them under **Manually catalogued**.
 
+## Upgraded Collections
+
+**Collections** now supports case-insensitive search, sorting by most watched / average rating / alphabetical order, minimum watched count, and pagination. Opening any collection shows watched count, rated count, average rating, and titles on the watchlist, with watched/watchlist/unrated filters and film sorting. Director and actor collection pages also have a link into the **Filmographies** search.
+
+Collection statistics are calculated only from locally saved films allowed by the inclusion settings. They are not full-filmography completion percentages. For full TMDB movie-credit totals, use **Filmographies**, which has its own inclusion limitations.
+
 ## Filmography counting caveats
 
 The Filmographies tab uses TMDB's **person/movie credits** data. It is not a definitive list of feature films: credits may include shorts, documentaries, unreleased titles, and other productions. Adult-tagged titles and video releases are excluded from the default credits display. A watched film is recognized only if its saved TMDB **movie** ID matches a credit (so unmatched titles won't accidentally count). Totals are specific to the selected person's director or actor credits; filmography totals are distinct from the counts of films in your own library.
