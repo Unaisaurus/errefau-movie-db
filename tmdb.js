@@ -133,7 +133,7 @@
     if (!feedback) return;
     running = true; cancel = false; run.disabled = true; stop.disabled = false;
     let matched=0,review=0,processed=0;
-    const targets=state.records.filter(f => !f.tmdbId && f.tmdbStatus !== "review").slice(0,25);
+    const targets=state.records.filter(f => !f.tmdbId && !f.excluded && f.tmdbStatus !== "review" && f.tmdbStatus !== "excluded").slice(0,25);
     try {
       await call({ mode: "health" });
       for (const f of targets) {
