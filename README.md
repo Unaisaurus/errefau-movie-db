@@ -57,9 +57,13 @@ To try it, open **Filmographies** and search for a director or actor. Select the
 
 ## Planned next steps
 
-- Improve TMDB matching for alternate titles and tricky releases; review uncertain matches in bulk.
+- Improve TMDB matching for alternate titles and tricky releases; add bulk review resolution. The Settings page now reports enriched, unprocessed, manual-review and incomplete-match counts, with separate next-25, retry and repair actions.
 - Progress counters based on relevant filmographies (separate from watchlist-only completion).
 - Better filters, faster bulk editing, film matching review.
 - Private synced database and account sign-in if desired.
 
 Film metadata attribution: This product uses the TMDB API but is not endorsed or certified by TMDB. https://www.themoviedb.org/
+
+## When enrichment stops before all films have credits
+
+Go to **Settings → Automatic movie metadata**. The four counters distinguish **Enriched**, **Not yet tried**, **Needs review**, and **Incomplete match**. Use **Enrich next 25 unprocessed** until the unprocessed count reaches zero. If the remaining titles are in **Needs review**, the algorithm could not confidently match them: you can use **Retry 25 needing review** to try with improved matching, but unresolved entries may still need individual TMDB selection. Use **Repair 25 incomplete matches** if some matched entries retain an unclassified type. A TMDB-matched movie can legitimately have no poster if TMDB has none. Back up your local JSON regularly; this browser-only prototype does not synchronize data.
