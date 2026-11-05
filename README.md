@@ -55,6 +55,12 @@ If a film was originally broadcast in parts but you watched and rated the combin
 
 These manually resolved entries count towards your library and collection statistics (according to the inclusion settings), but are **not yet recognized as watched** in TMDB-person filmography progress, because they have no TMDB movie ID. The enrichment dashboard tracks them under **Manually catalogued**.
 
+## Duplicate protection
+
+The site checks TMDB media + ID, Letterboxd URI, and normalized film title + release year before saving a new movie or changing an existing entry. When a match is detected it **blocks the save** with an "Already logged" notification; it never silently merges or changes the existing rating, favorite or watched status. The existing item can be opened and edited normally.
+
+Filmographies watchlist additions use the same checks, including manually catalogued films without TMDB IDs. Letterboxd CSV reimports preserve matching entries, and now also recognize title/year matches rather than making a new record when the URI is missing. Identical titles from **different years** are allowed. Previously existing duplicates are not automatically deleted or merged; those require manual review.
+
 ## Favorites and reversible sorting
 
 Film cards in **Library**, **Watchlist** and **Collections** have a separate heart button. Use it to add or remove a favorite without changing watched status or star ratings. The Library and Watchlist have a **Favorites only** filter and a **Reverse order** button for their title/year/rating sorts. Collection group and subgroup sorting include most/fewest watched, highest/lowest average rating, and A–Z/Z–A; individual collection films include highest/lowest rating, newest/oldest, and A–Z/Z–A. Individual collections also support a **♥ Favorites** filter. Matched films in **Filmographies** can be favorited, too.
