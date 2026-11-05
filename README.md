@@ -57,9 +57,13 @@ These manually resolved entries count towards your library and collection statis
 
 ## Upgraded Collections
 
-**Collections** now supports case-insensitive search, sorting by most watched / average rating / alphabetical order, minimum watched count, and pagination. Opening any collection shows watched count, rated count, average rating, and titles on the watchlist, with watched/watchlist/unrated filters and film sorting. Director and actor collection pages also have a link into the **Filmographies** search.
+**Collections → category browser:** Search by collection name, sort by most/fewest watched films, highest/lowest personal average rating, or alphabetical order, and filter by minimum watched count.
 
-Collection statistics are calculated only from locally saved films allowed by the inclusion settings. They are not full-filmography completion percentages. For full TMDB movie-credit totals, use **Filmographies**, which has its own inclusion limitations.
+**Collections → selected year/director/actor/etc.:** Search film titles and credits inside the collection, filter watched/rated/unrated/watchlist, and sort individual movies by rating, watched status, release year, or title.
+
+**Break down this collection:** Select a secondary category (such as the directors of films released in 2024), search those groups, and rank them by most/fewest watched films or highest/lowest average rating. Click a subgroup to filter the film posters. The summary at the top reflects the whole collection, not these temporary filters.
+
+All counts represent your **saved local collection**, not all films ever made. Director and actor collection pages link to their wider TMDB filmographies.
 
 ## Filmography counting caveats
 
