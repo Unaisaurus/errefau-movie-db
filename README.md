@@ -55,6 +55,12 @@ If a film was originally broadcast in parts but you watched and rated the combin
 
 These manually resolved entries count towards your library and collection statistics (according to the inclusion settings), but are **not yet recognized as watched** in TMDB-person filmography progress, because they have no TMDB movie ID. The enrichment dashboard tracks them under **Manually catalogued**.
 
+## Favorites and reversible sorting
+
+Film cards in **Library**, **Watchlist** and **Collections** have a separate heart button. Use it to add or remove a favorite without changing watched status or star ratings. The Library and Watchlist have a **Favorites only** filter and a **Reverse order** button for their title/year/rating sorts. Collection group and subgroup sorting include most/fewest watched, highest/lowest average rating, and A–Z/Z–A; individual collection films include highest/lowest rating, newest/oldest, and A–Z/Z–A. Individual collections also support a **♥ Favorites** filter. Matched films in **Filmographies** can be favorited, too.
+
+Favorite flags are stored on each local record and included in JSON backups and restores. Letterboxd CSV reimports keep existing favorites because matching records are updated in place. For now favorites are browser-local like the rest of Film Atlas data.
+
 ## Upgraded Collections
 
 **Collections → category browser:** Search by collection name, sort by most/fewest watched films, highest/lowest personal average rating, or alphabetical order, and filter by minimum watched count.
