@@ -19,12 +19,16 @@
   }
   function selectMatch(f, list) {
     const title = normalized(f.title), yr = Number(f.year);
-    const exact = list.filter(x => normalized(x.title) === title || normalized(x.original_title) === title);
-    const candidates = exact.filter(x => x.media_type === "movie" && Math.abs(Number(yearOf(x)) - yr) <= 1);
-    if (candidates.length !== 1) return null;
-    if (String(candidates[0].title || "") === "" || !candidates[0].id) return null;
-    // A strict, unique movie + title + release year match minimizes false positives.
-    return candidates[0];
+    // We accept a TV series ONLY when its title and year also match uniquely.
+    // Episodes are not automatically mapped to the parent series.
+    const candidates = list.filter(x =>
+      (x.media_type === "movie" || x.media_type === "tv") &&
+      Number(x.id) > 0 &&
+      (normalized(x.title) === title || normalized(x.original_title) === title) &&
+      yr > 1800 && Math.abs(Number(yearOf(x)) - yr) <= 1
+    );
+    const unique = [...new Map(candidates.map(x=>[x.media_type+":"+x.id,x])).values()];
+    return unique.length === 1 ? unique[0] : null;
   }
   function names(people) { return [...new Set(people.filter(Boolean).map(x => typeof x === "string" ? x : x.name).filter(Boolean))].join("|"); }
   function deriveType(data, media) {
@@ -53,6 +57,37 @@
     const data = await call({ mode: "details", media: result.media_type, id: String(result.id) });
     Object.assign(f, toFields(data, result.media_type));
     save();
+  }
+  function getProgress() {
+    const records = state.records.filter(f => !f.excluded);
+    return {
+      total: records.length,
+      completed: records.filter(f => f.tmdbId && f.type && f.type !== "unknown").length,
+      pending: records.filter(f => !f.tmdbId && f.tmdbStatus !== "review").length,
+      review: records.filter(f => !f.tmdbId && f.tmdbStatus === "review").length,
+      repair: records.filter(f => f.tmdbId && (!f.type || f.type === "unknown")).length,
+      excluded: state.records.filter(f => f.excluded).length
+    };
+  }
+  function refreshProgress() {
+    const target = document.querySelector("#tmdbProgress");
+    if (!target) return;
+    const p = getProgress();
+    target.innerHTML =
+      '<div class="stat-grid">' + [
+        ["Enriched", p.completed], ["Not yet tried", p.pending],
+        ["Needs review", p.review], ["Incomplete match", p.repair]
+      ].map(([label,n]) => '<div class="stat"><div class="label">' + escape(label) + '</div><div class="value">' + n + '</div></div>').join("") +
+      '</div><p class="hint">Of ' + p.total + ' active entries, ' + p.excluded +
+      ' separately excluded. These counts include TV and other hidden categories. Missing posters alone do not imply an incomplete match; TMDB sometimes has no poster.</p>';
+    const first = document.querySelector("#enrichTmdb");
+    const retry = document.querySelector("#retryTmdb");
+    const repair = document.querySelector("#repairTmdb");
+    if (first) first.disabled = running || p.pending === 0;
+    if (retry) retry.disabled = running || p.review === 0;
+    if (repair) repair.disabled = running || p.repair === 0;
+    const stop = document.querySelector("#stopTmdb");
+    if (stop) stop.disabled = !running;
   }
   function refreshReviewQueue() {
     const holder = document.querySelector("#tmdbReviewQueue");
@@ -86,6 +121,7 @@
         save();
         refreshReviewQueue();
         toast("Excluded from your movie library: " + entry.title);
+        refreshProgress();
       });
     });
     const hidden = state.records.filter(f => f.excluded);
@@ -103,6 +139,7 @@
       save();
       refreshReviewQueue();
       toast("Restored " + entry.title);
+      refreshProgress();
     });
   }
   function panel() {
@@ -112,7 +149,14 @@
     const article = document.createElement("div");
     article.className = "panel";
     article.id = "tmdbPanel";
-    article.innerHTML = '<h2>Automatic movie metadata</h2><p class="hint">Connects through the server-side TMDB proxy. Films only auto-match when exactly one movie has the same normalized title and a release year within one year. Otherwise they appear in the review queue below. Your ratings and watched status are never overwritten.</p><div class="controls"><button id="testTmdb" class="button">Test connection</button><button id="enrichTmdb" class="button button-primary">Enrich next 25 films</button><button id="stopTmdb" class="button" disabled>Stop</button></div><p id="tmdbFeedback" class="hint" aria-live="polite"></p><div id="tmdbReviewQueue"></div>';
+    article.innerHTML = '<h2>Automatic movie metadata</h2><p class="hint">TMDB results are linked by title and release year, including unique TV series matches. Ambiguous results are never linked automatically. Your watched status and personal rating stay unchanged.</p>' +
+      '<div id="tmdbProgress"></div>' +
+      '<div class="controls"><button id="testTmdb" class="button">Test connection</button>' +
+      '<button id="enrichTmdb" class="button button-primary">Enrich next 25 unprocessed</button>' +
+      '<button id="retryTmdb" class="button">Retry 25 needing review</button>' +
+      '<button id="repairTmdb" class="button">Repair 25 incomplete matches</button>' +
+      '<button id="stopTmdb" class="button" disabled>Stop</button></div>' +
+      '<p id="tmdbFeedback" class="hint" aria-live="polite"></p><div id="tmdbReviewQueue"></div>';
     const settingSections = main.querySelectorAll(".panel");
     if (settingSections[0]) settingSections[0].after(article); else main.append(article);
     article.querySelector("#testTmdb").onclick = async () => {
@@ -124,36 +168,75 @@
       } catch(e) { feedback.textContent = "Connection issue: " + e.message; }
     };
     article.querySelector("#stopTmdb").onclick = () => { cancel = true; };
-    article.querySelector("#enrichTmdb").onclick = enrichBatch;
+    article.querySelector("#enrichTmdb").onclick = () => enrichBatch("pending");
+    article.querySelector("#retryTmdb").onclick = () => enrichBatch("review");
+    article.querySelector("#repairTmdb").onclick = () => enrichBatch("repair");
     refreshReviewQueue();
+    refreshProgress();
   }
-  async function enrichBatch() {
+  async function enrichBatch(mode = "pending") {
     if (running) return;
-    const feedback = document.querySelector("#tmdbFeedback"), run = document.querySelector("#enrichTmdb"), stop = document.querySelector("#stopTmdb");
+    const feedback = document.querySelector("#tmdbFeedback");
     if (!feedback) return;
-    running = true; cancel = false; run.disabled = true; stop.disabled = false;
-    let matched=0,review=0,processed=0;
-    const targets=state.records.filter(f => !f.tmdbId && !f.excluded && f.tmdbStatus !== "review" && f.tmdbStatus !== "excluded").slice(0,25);
+    const matchesMode = mode === "review" || mode === "repair" ? mode : "pending";
+    const targets = state.records.filter(f => !f.excluded && (
+      matchesMode === "repair"
+        ? !!f.tmdbId && (!f.type || f.type === "unknown")
+        : matchesMode === "review"
+          ? !f.tmdbId && f.tmdbStatus === "review"
+          : !f.tmdbId && f.tmdbStatus !== "review"
+    )).slice(0,25);
+    if (!targets.length) {
+      feedback.textContent = matchesMode === "pending"
+        ? "There are no unprocessed entries left. See Needs review and Incomplete match above."
+        : matchesMode === "review"
+          ? "There are no entries awaiting manual review."
+          : "There are no incomplete TMDB matches to repair.";
+      refreshProgress();
+      return;
+    }
+    running = true; cancel = false;
+    refreshProgress();
+    let matched = 0, stillReview = 0, processed = 0, error = "";
     try {
       await call({ mode: "health" });
       for (const f of targets) {
-        if (cancel) break;
-        feedback.textContent = "Checking " + (processed+1) + " of " + targets.length + ": " + f.title + "…";
+        if (cancel || state.page !== "settings") break;
+        feedback.textContent = (matchesMode === "repair" ? "Repairing" : "Checking") + " " +
+          (processed + 1) + " of " + targets.length + ": " + f.title + "…";
         try {
-          const search = await call({mode:"search",query:f.title});
-          const match=selectMatch(f,search.results || []);
-          if (match) { await apply(f,match);matched++; }
-          else { f.tmdbStatus="review";review++;save(); }
-        } catch(e) {
-          feedback.textContent = "Stopped on " + f.title + ": " + e.message;
+          if (matchesMode === "repair") {
+            const data = await call({mode:"details",media:f.tmdbMedia || "movie",id:String(f.tmdbId)});
+            Object.assign(f, toFields(data,f.tmdbMedia || "movie"));
+            matched++;
+          } else {
+            const search = await call({ mode:"search", query:f.title });
+            const match = selectMatch(f, search.results || []);
+            if (match) { await apply(f,match); matched++; }
+            else { f.tmdbStatus = "review"; stillReview++; }
+          }
+          save();
+        } catch (e) {
+          error = f.title + ": " + e.message;
           break;
         }
         processed++;
+        refreshProgress();
         await wait(180);
       }
-      feedback.textContent = "Processed " + processed + " films: " + matched + " matched, " + review + " need manual review. " + (cancel?"Stopped.":"Run again for another batch.");
-    } catch(e) {feedback.textContent="Could not connect: "+e.message;}
-    finally {running=false;run.disabled=false;stop.disabled=true;refreshReviewQueue();}
+      feedback.textContent =
+        "Processed " + processed + " of " + targets.length + " in this batch: " +
+        matched + " enriched, " + stillReview + " still need review." +
+        (cancel ? " Stopped by you." : "") +
+        (error ? " Stopped after an error: " + error : "") +
+        (matchesMode === "review" && stillReview ? " Unresolved entries remain in the review queue; you can select their TMDB match manually." : "");
+    } catch (e) {
+      feedback.textContent = "Connection problem: " + e.message;
+    } finally {
+      running = false;
+      refreshProgress();
+      refreshReviewQueue();
+    }
   }
   function setupEditor(filmId) {
     const form = document.querySelector("#filmForm");
