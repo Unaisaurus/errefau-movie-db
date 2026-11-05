@@ -9,6 +9,7 @@ A personal film-tracking website inspired by the things you wish Letterboxd coul
 - Preserve watched-but-unrated films.
 - Change ratings in 0.5-star steps, add films, mark watched/unwatched, or build a fresh watchlist.
 - Browse release-year collections and rating statistics immediately.
+- **Filmographies**: search a director or actor using TMDB, browse their movie credits, compare watched and missing titles, calculate your rating average, and add missing movies to your watchlist.
 - Edit director, actor, composer, studio, country and genre metadata; collections are generated from these fields.
 - Hide/show shorts, documentaries, series, TV movies and unclassified entries with settings.
 - Export/restore JSON backups.
@@ -47,6 +48,12 @@ Never commit your Letterboxd CSV files or personal backups into this public repo
 Imported films start as **Unclassified**, rather than assuming every Letterboxd entry is a feature film. They are visible until you classify them and choose which types to include.
 
 Reimporting matches films by their Letterboxd URI. It does **not** overwrite edited ratings on existing films, so your changes are safe.
+
+## Filmography counting caveats
+
+The Filmographies tab uses TMDB's **person/movie credits** data. It is not a definitive list of feature films: credits may include shorts, documentaries, unreleased titles, and other productions. Adult-tagged titles and video releases are excluded from the default credits display. A watched film is recognized only if its saved TMDB **movie** ID matches a credit (so unmatched titles won't accidentally count). Totals are specific to the selected person's director or actor credits; filmography totals are distinct from the counts of films in your own library.
+
+To try it, open **Filmographies** and search for a director or actor. Select the correct person, then browse watched, missing and watchlisted film credits. Adding an unwatched credit to the watchlist retrieves its metadata and saves it locally.
 
 ## Planned next steps
 
