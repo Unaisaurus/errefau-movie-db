@@ -54,6 +54,29 @@
     Object.assign(f, toFields(data, result.media_type));
     save();
   }
+  function refreshReviewQueue() {
+    const holder = document.querySelector("#tmdbReviewQueue");
+    if (!holder) return;
+    const items = state.records.filter(f => f.tmdbStatus === "review" && !f.tmdbId);
+    holder.innerHTML = '<div class="between spaced"><h3 style="margin:0">Needs manual review: ' + items.length +
+      '</h3><span class="muted small">From all imported titles, including hidden types</span></div>' +
+      (items.length
+        ? '<p class="hint">These titles were not matched automatically. Click <strong>Review</strong>, search for the right film (try an alternate or original title), select the correct result, and save.</p>' +
+          '<div class="stack">' + items.slice(0,100).map(f =>
+            '<div class="between" style="border-bottom:1px solid var(--border);padding:9px 0">' +
+            '<div><strong>' + escape(f.title) + '</strong> <span class="muted">(' + escape(f.year || "year unknown") + ')</span></div>' +
+            '<button type="button" class="button button-sm" data-review-id="' + escape(f.id) + '">Review</button></div>'
+          ).join("") + '</div>' +
+          (items.length > 100 ? '<p class="hint">Showing the first 100. More will appear as you resolve these.</p>' : '')
+        : '<p class="hint">All caught up! Films requiring manual review will appear here after future batches.</p>');
+    holder.querySelectorAll("[data-review-id]").forEach(button => {
+      button.addEventListener("click", () => {
+        openEditor(button.dataset.reviewId);
+        const search = document.querySelector("#tmdbSearchButton");
+        if (search) search.click();
+      });
+    });
+  }
   function panel() {
     if (state.page !== "settings") return;
     const main = document.querySelector("#app");
@@ -61,17 +84,20 @@
     const article = document.createElement("div");
     article.className = "panel";
     article.id = "tmdbPanel";
-    article.innerHTML = '<h2>Automatic movie metadata</h2><p class="hint">Connects through a private Vercel server function. Film Atlas only auto-matches a film when TMDB has exactly one movie with the same normalized title and a release year within one year. Other films stay untouched for manual review. Existing ratings and watched status are never overwritten.</p><div class="controls"><button id="testTmdb" class="button">Test connection</button><button id="enrichTmdb" class="button button-primary">Enrich next 25 films</button><button id="stopTmdb" class="button" disabled>Stop</button></div><p id="tmdbFeedback" class="hint" aria-live="polite"></p>';
+    article.innerHTML = '<h2>Automatic movie metadata</h2><p class="hint">Connects through the server-side TMDB proxy. Films only auto-match when exactly one movie has the same normalized title and a release year within one year. Otherwise they appear in the review queue below. Your ratings and watched status are never overwritten.</p><div class="controls"><button id="testTmdb" class="button">Test connection</button><button id="enrichTmdb" class="button button-primary">Enrich next 25 films</button><button id="stopTmdb" class="button" disabled>Stop</button></div><p id="tmdbFeedback" class="hint" aria-live="polite"></p><div id="tmdbReviewQueue"></div>';
     const settingSections = main.querySelectorAll(".panel");
     if (settingSections[0]) settingSections[0].after(article); else main.append(article);
     article.querySelector("#testTmdb").onclick = async () => {
       const feedback = document.querySelector("#tmdbFeedback");
-      feedback.textContent = "Testing secure connection…";
-      try { await call({mode:"health"});feedback.textContent = "✓ TMDB API is configured and the server is responding."; }
-      catch(e) { feedback.textContent = "Connection issue: " + e.message; }
+      feedback.textContent = "Testing TMDB connection…";
+      try {
+        const result = await call({ mode: "health" });
+        feedback.textContent = result.verified ? "✓ TMDB credentials verified and connection working." : "✓ Server responded; credential verification not confirmed.";
+      } catch(e) { feedback.textContent = "Connection issue: " + e.message; }
     };
     article.querySelector("#stopTmdb").onclick = () => { cancel = true; };
     article.querySelector("#enrichTmdb").onclick = enrichBatch;
+    refreshReviewQueue();
   }
   async function enrichBatch() {
     if (running) return;
@@ -99,62 +125,84 @@
       }
       feedback.textContent = "Processed " + processed + " films: " + matched + " matched, " + review + " need manual review. " + (cancel?"Stopped.":"Run again for another batch.");
     } catch(e) {feedback.textContent="Could not connect: "+e.message;}
-    finally {running=false;run.disabled=false;stop.disabled=true;}
+    finally {running=false;run.disabled=false;stop.disabled=true;refreshReviewQueue();}
   }
-  function setupEditor() {
-    const form=document.querySelector("#filmForm");
+  function setupEditor(filmId) {
+    const form = document.querySelector("#filmForm");
     if (!form || form.querySelector("#tmdbSearchButton")) return;
-    const p=document.createElement("div");
-    p.className="panel spaced";
-    p.style.marginBottom="0";
-    p.innerHTML='<div class="between"><strong>TMDB metadata lookup</strong><button id="tmdbSearchButton" class="button button-sm" type="button">Search TMDB</button></div><p class="hint">Search by title, then choose the correct movie or series. This fills in credits, poster, type and countries without changing your rating.</p><div id="tmdbEditorResults"></div>';
-    const actions=form.querySelector(".modal-actions");
+    const p = document.createElement("div");
+    p.className = "panel spaced";
+    p.style.marginBottom = "0";
+    p.innerHTML = '<div class="between"><strong>TMDB metadata lookup</strong></div>' +
+      '<p class="hint">Search for the correct movie or series; if needed, try its original-language title. Choose the correct result by title and year, then press Save changes. Your personal rating is preserved.</p>' +
+      '<div class="controls"><label class="field grow">TMDB title search<input id="tmdbTitleQuery" type="search" placeholder="Film title…"></label><button id="tmdbSearchButton" class="button button-sm" type="button">Search TMDB</button></div>' +
+      '<div id="tmdbEditorResults" aria-live="polite"></div>';
+    const actions = form.querySelector(".modal-actions");
     if (actions) actions.before(p); else form.append(p);
-    p.querySelector("#tmdbSearchButton").onclick=async()=>{
-      const title=form.querySelector('[name="title"]').value.trim();
-      const target=p.querySelector("#tmdbEditorResults");
-      if (title.length<2) {target.textContent="Enter a film title first.";return;}
-      target.textContent="Searching TMDB…";
+    const input = p.querySelector("#tmdbTitleQuery");
+    input.value = form.elements.namedItem("title").value;
+    p.querySelector("#tmdbSearchButton").onclick = async () => {
+      const title = input.value.trim();
+      const target = p.querySelector("#tmdbEditorResults");
+      currentEditor = null;
+      if (title.length < 2) { target.textContent = "Enter at least two characters."; return; }
+      target.textContent = "Searching TMDB…";
       try {
-        const data=await call({mode:"search",query:title});
-        const matches=(data.results||[]).slice(0,12);
-        if(!matches.length){target.textContent="No matching titles. You can still enter metadata manually.";return;}
-        target.innerHTML='<div class="stack spaced">'+matches.map((m,i)=>'<button type="button" class="collection-card" data-result="'+i+'"><strong>'+escape(m.title)+'</strong><span>'+escape(yearOf(m)||"Year unknown")+' · '+escape(m.media_type)+'</span></button>').join("")+'</div>';
+        const data = await call({ mode: "search", query: title });
+        const matches = (data.results || []).slice(0, 12);
+        if (!matches.length) { target.textContent = "No results. Try another title or enter metadata manually."; return; }
+        target.innerHTML = '<div class="stack spaced">' + matches.map((m,i) =>
+          '<button type="button" class="collection-card" data-result="' + i + '"><strong>' + escape(m.title) + '</strong><span>' +
+          escape(yearOf(m) || "Year unknown") + ' · ' + escape(m.media_type) + '</span></button>'
+        ).join("") + '</div>';
         for (const btn of target.querySelectorAll("[data-result]")) {
-          btn.onclick=async()=>{
-            const choice=matches[Number(btn.dataset.result)];
-            target.textContent="Loading credits for "+choice.title+"…";
+          btn.onclick = async () => {
+            const choice = matches[Number(btn.dataset.result)];
+            target.textContent = "Loading credits for " + choice.title + "…";
             try {
-              const details=await call({mode:"details",media:choice.media_type,id:String(choice.id)});
-              const fields=toFields(details,choice.media_type);
-              for(const [k,v] of Object.entries(fields)){
-                const input=form.elements.namedItem(k);
-                if(input && typeof v==="string") input.value=v;
+              const details = await call({ mode: "details", media: choice.media_type, id: String(choice.id) });
+              const fields = toFields(details, choice.media_type);
+              for (const [key, value] of Object.entries(fields)) {
+                const control = form.elements.namedItem(key);
+                if (control && typeof value === "string") control.value = value;
               }
-              const type=form.elements.namedItem("type");if(type)type.value=fields.type;
-              // Existing form does not serialize TMDB IDs, so retain this choice until Save.
-              currentEditor={id:choice.id,media:choice.media_type,fields};
-              target.innerHTML='<div class="notice">Matched '+escape(choice.title)+' ('+escape(yearOf(choice))+'). Press <strong>Save changes</strong> to store the enriched metadata.</div>';
-            }catch(e){target.textContent="Could not load details: "+e.message;}
+              const type = form.elements.namedItem("type");
+              if (type) type.value = fields.type;
+              currentEditor = fields;
+              target.innerHTML = '<div class="notice">Selected ' + escape(choice.title) + ' (' +
+                escape(yearOf(choice) || "year unknown") +
+                '). Check that this is the right film, then press <strong>Save changes</strong> below.</div>';
+            } catch (e) { target.textContent = "Could not load details: " + e.message; }
           };
         }
-      }catch(e){target.textContent="Search unavailable: "+e.message;}
+      } catch (e) { target.textContent = "TMDB search failed: " + e.message; }
     };
-    const originalSubmit=form.onsubmit;
-    form.onsubmit=function(event){
-      const movieId=event.target.closest(".modal")?.querySelector('[name="uri"]')?.value;
-      originalSubmit.call(form,event);
-      if(currentEditor){
-        const matched=state.records.find(f=>f.uri && movieId && f.uri===movieId) || state.records.find(f=>f.title===form.elements.namedItem("title").value);
-        if(matched){ Object.assign(matched,currentEditor.fields);save(); }
-        currentEditor=null;
-        render();
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter") {event.preventDefault();p.querySelector("#tmdbSearchButton").click();}
+    });
+    // The original editor saves normal fields; after that, attach the chosen
+    // TMDB ID and metadata to the EXACT edited record, not a title duplicate.
+    const originalSubmit = form.onsubmit;
+    form.onsubmit = function(event) {
+      const pending = currentEditor;
+      const previousIds = new Set(state.records.map(f => f.id));
+      originalSubmit.call(form, event);
+      if (pending) {
+        const item = filmId
+          ? state.records.find(f => f.id === filmId)
+          : state.records.find(f => !previousIds.has(f.id));
+        if (item) {
+          Object.assign(item, pending);
+          save();
+          render();
+        }
       }
+      currentEditor = null;
     };
   }
   const renderOld=render;
   render=function(){renderOld();panel();};
   const editorOld=openEditor;
-  openEditor=function(filmId){currentEditor=null;editorOld(filmId);setupEditor();};
+  openEditor=function(filmId){currentEditor=null;editorOld(filmId);setupEditor(filmId);};
   panel();
 })();
