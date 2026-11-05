@@ -11,8 +11,24 @@
     const res = await fetch(url, { headers: { Accept: "application/json" } });
     let data;
     try { data = await res.json(); } catch { throw Error("Invalid response. Is this site deployed on Vercel?"); }
-    if (!res.ok) throw Error(data.error || "TMDB request failed (" + res.status + ").");
+    if (!res.ok) {
+      const error = Error(data.error || "TMDB request failed (" + res.status + ").");
+      error.status = res.status;
+      throw error;
+    }
     return data;
+  }
+  // TMDB's proxy allows at most 120 characters for a movie search.
+  // For exceptionally long titles, search by the complete main title
+  // (before a colon) or a safe word boundary; never rename the saved film.
+  function searchTitle(title) {
+    const full = String(title || "").trim();
+    if (full.length <= 120) return full;
+    const colon = full.indexOf(":");
+    if (colon >= 8 && colon <= 120) return full.slice(0, colon).trim();
+    const prefix = full.slice(0, 120);
+    const wordBoundary = prefix.lastIndexOf(" ");
+    return (wordBoundary >= 15 ? prefix.slice(0, wordBoundary) : prefix).trim();
   }
   function normalized(s) {
     return String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -210,13 +226,24 @@
             Object.assign(f, toFields(data,f.tmdbMedia || "movie"));
             matched++;
           } else {
-            const search = await call({ mode:"search", query:f.title });
+            const search = await call({ mode:"search", query:searchTitle(f.title) });
             const match = selectMatch(f, search.results || []);
             if (match) { await apply(f,match); matched++; }
             else { f.tmdbStatus = "review"; stillReview++; }
           }
           save();
         } catch (e) {
+          // A single malformed title should not block the entire queue.
+          // Leave temporary/server/rate-limit failures pending for a later retry.
+          if (matchesMode !== "repair" && e.status === 400) {
+            f.tmdbStatus = "review";
+            stillReview++;
+            processed++;
+            save();
+            refreshProgress();
+            await wait(180);
+            continue;
+          }
           error = f.title + ": " + e.message;
           break;
         }
@@ -259,7 +286,7 @@
       if (title.length < 2) { target.textContent = "Enter at least two characters."; return; }
       target.textContent = "Searching TMDB…";
       try {
-        const data = await call({ mode: "search", query: title });
+        const data = await call({ mode: "search", query: searchTitle(title) });
         const matches = (data.results || []).slice(0, 12);
         if (!matches.length) { target.textContent = "No results. Try another title or enter metadata manually."; return; }
         target.innerHTML = '<div class="stack spaced">' + matches.map((m,i) =>
