@@ -49,6 +49,12 @@ Imported films start as **Unclassified**, rather than assuming every Letterboxd 
 
 Reimporting matches films by their Letterboxd URI. It does **not** overwrite edited ratings on existing films, so your changes are safe.
 
+## Combined releases without a matching TMDB entry
+
+If a film was originally broadcast in parts but you watched and rated the combined version, you can **keep one film entry** and resolve it manually rather than assigning an incorrect ID for one part. Open **Settings → Automatic movie metadata → Needs manual review**, click **Resolve manually**, choose the film type, enter director / composer / studio / country metadata, and save. The film is retained once with its original rating and excluded from future TMDB matching attempts. You can still edit it from the Library later.
+
+These manually resolved entries count towards your library and collection statistics (according to the inclusion settings), but are **not yet recognized as watched** in TMDB-person filmography progress, because they have no TMDB movie ID. The enrichment dashboard tracks them under **Manually catalogued**.
+
 ## Filmography counting caveats
 
 The Filmographies tab uses TMDB's **person/movie credits** data. It is not a definitive list of feature films: credits may include shorts, documentaries, unreleased titles, and other productions. Adult-tagged titles and video releases are excluded from the default credits display. A watched film is recognized only if its saved TMDB **movie** ID matches a credit (so unmatched titles won't accidentally count). Totals are specific to the selected person's director or actor credits; filmography totals are distinct from the counts of films in your own library.
@@ -66,4 +72,4 @@ Film metadata attribution: This product uses the TMDB API but is not endorsed or
 
 ## When enrichment stops before all films have credits
 
-Go to **Settings → Automatic movie metadata**. The four counters distinguish **Enriched**, **Not yet tried**, **Needs review**, and **Incomplete match**. Use **Enrich next 25 unprocessed** until the unprocessed count reaches zero. If the remaining titles are in **Needs review**, the algorithm could not confidently match them: you can use **Retry 25 needing review** to try with improved matching, but unresolved entries may still need individual TMDB selection. Use **Repair 25 incomplete matches** if some matched entries retain an unclassified type. A TMDB-matched movie can legitimately have no poster if TMDB has none. Back up your local JSON regularly; this browser-only prototype does not synchronize data.
+Go to **Settings → Automatic movie metadata**. The counters distinguish **Enriched via TMDB**, **Manually catalogued**, **Not yet tried**, **Needs review**, and **Incomplete match**. Use **Enrich next 25 unprocessed** until the unprocessed count reaches zero. If the remaining titles are in **Needs review**, the algorithm could not confidently match them: you can use **Retry 25 needing review** to try with improved matching, but unresolved entries may still need individual TMDB selection. Use **Repair 25 incomplete matches** if some matched entries retain an unclassified type. A TMDB-matched movie can legitimately have no poster if TMDB has none. Back up your local JSON regularly; this browser-only prototype does not synchronize data.
