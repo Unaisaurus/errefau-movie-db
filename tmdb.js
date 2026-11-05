@@ -57,7 +57,7 @@
   function refreshReviewQueue() {
     const holder = document.querySelector("#tmdbReviewQueue");
     if (!holder) return;
-    const items = state.records.filter(f => f.tmdbStatus === "review" && !f.tmdbId);
+    const items = state.records.filter(f => f.tmdbStatus === "review" && !f.tmdbId && !f.excluded);
     holder.innerHTML = '<div class="between spaced"><h3 style="margin:0">Needs manual review: ' + items.length +
       '</h3><span class="muted small">From all imported titles, including hidden types</span></div>' +
       (items.length
@@ -65,7 +65,8 @@
           '<div class="stack">' + items.slice(0,100).map(f =>
             '<div class="between" style="border-bottom:1px solid var(--border);padding:9px 0">' +
             '<div><strong>' + escape(f.title) + '</strong> <span class="muted">(' + escape(f.year || "year unknown") + ')</span></div>' +
-            '<button type="button" class="button button-sm" data-review-id="' + escape(f.id) + '">Review</button></div>'
+            '<span style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="button button-sm" data-review-id="' + escape(f.id) + '">Review</button>' +
+            '<button type="button" class="button button-sm" data-exclude-id="' + escape(f.id) + '">Exclude (episode)</button></span></div>'
           ).join("") + '</div>' +
           (items.length > 100 ? '<p class="hint">Showing the first 100. More will appear as you resolve these.</p>' : '')
         : '<p class="hint">All caught up! Films requiring manual review will appear here after future batches.</p>');
@@ -75,6 +76,33 @@
         const search = document.querySelector("#tmdbSearchButton");
         if (search) search.click();
       });
+    });
+    holder.querySelectorAll("[data-exclude-id]").forEach(button => {
+      button.addEventListener("click", () => {
+        const entry = state.records.find(f => f.id === button.dataset.excludeId);
+        if (!entry) return;
+        entry.excluded = true;
+        entry.tmdbStatus = "excluded";
+        save();
+        refreshReviewQueue();
+        toast("Excluded from your movie library: " + entry.title);
+      });
+    });
+    const hidden = state.records.filter(f => f.excluded);
+    const restored = document.createElement("div");
+    restored.className = "spaced";
+    restored.innerHTML = '<details><summary class="muted" style="cursor:pointer">Excluded entries (' + hidden.length + ') — restore if needed</summary>' +
+      '<div class="stack spaced">' + hidden.map(f => '<div class="between"><span>' + escape(f.title) + ' (' + escape(f.year || "—") + ')</span>' +
+      '<button class="button button-sm" data-restore-id="' + escape(f.id) + '">Restore</button></div>').join("") + '</div></details>';
+    holder.append(restored);
+    restored.querySelectorAll("[data-restore-id]").forEach(button => button.onclick = () => {
+      const entry = state.records.find(f => f.id === button.dataset.restoreId);
+      if (!entry) return;
+      entry.excluded = false;
+      entry.tmdbStatus = "review";
+      save();
+      refreshReviewQueue();
+      toast("Restored " + entry.title);
     });
   }
   function panel() {
