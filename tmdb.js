@@ -314,6 +314,17 @@
             try {
               const details = await call({ mode: "details", media: choice.media_type, id: String(choice.id) });
               const fields = toFields(details, choice.media_type);
+              // Selecting a TMDB result should complete the basic movie fields too.
+              // A new entry takes the canonical TMDB title/year. When editing an
+              // existing Letterboxd entry, preserve its title and release year,
+              // except that a missing year can safely be filled in.
+              const canonicalTitle = String(details.title || details.name || choice.title || "").trim();
+              const date = String(details.release_date || details.first_air_date || choice.release_date || "");
+              const tmdbYear = /^\\d{4}/.test(date) ? date.slice(0, 4) : "";
+              const titleField = form.elements.namedItem("title");
+              const yearField = form.elements.namedItem("year");
+              if (!filmId && titleField && canonicalTitle) titleField.value = canonicalTitle;
+              if (yearField && tmdbYear && (!filmId || !yearField.value.trim())) yearField.value = tmdbYear;
               for (const [key, value] of Object.entries(fields)) {
                 const control = form.elements.namedItem(key);
                 if (control && typeof value === "string") control.value = value;
@@ -321,9 +332,10 @@
               const type = form.elements.namedItem("type");
               if (type) type.value = fields.type;
               currentEditor = fields;
-              target.innerHTML = '<div class="notice">Selected ' + escape(choice.title) + ' (' +
-                escape(yearOf(choice) || "year unknown") +
-                '). Check that this is the right film, then press <strong>Save changes</strong> below.</div>';
+              target.innerHTML = '<div class="notice">Selected ' + escape(canonicalTitle || choice.title) + ' (' +
+                escape(tmdbYear || yearOf(choice) || "year unknown") +
+                '). ' + (filmId ? 'Original title and year kept where already filled. ' : 'Title and year filled from TMDB. ') +
+                'Your personal rating is unchanged. Press <strong>Save changes</strong> below.</div>';
             } catch (e) { target.textContent = "Could not load details: " + e.message; }
           };
         }
