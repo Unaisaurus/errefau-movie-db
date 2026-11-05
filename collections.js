@@ -219,6 +219,7 @@
     else if(filmStatus==="watchlist")rows=rows.filter(f=>f.watchlist&&!f.watched);
     else if(filmStatus==="unrated")rows=rows.filter(f=>f.watched && !rated(f));
     else if(filmStatus==="rated")rows=rows.filter(rated);
+    else if(filmStatus==="favorites")rows=rows.filter(f=>!!f.favorite);
     rows.sort(filmOrder);
     const max=Math.max(1,Math.ceil(rows.length/FILMS_PER_PAGE));
     filmPage=Math.max(0,Math.min(filmPage,max-1));
@@ -226,7 +227,7 @@
     const movieControls='<div class="panel"><h2 style="margin:0 0 12px">Search and sort films in '+esc(g.name)+'</h2>' +
       '<div class="controls"><label class="field grow">Search titles or credits<input id="collectionFilmSearch" type="search" placeholder="Search movies in this collection…" value="' + esc(filmSearch) + '"></label>' +
       '<label class="field">Show<select id="collectionFilmStatus">' +
-      options([["all","All movies"],["watched","Watched only"],["rated","Rated only"],["unrated","Watched but unrated"],["watchlist","Unwatched watchlist"]],filmStatus) +
+      options([["all","All movies"],["watched","Watched only"],["rated","Rated only"],["unrated","Watched but unrated"],["watchlist","Unwatched watchlist"],["favorites","♥ Favorites"]],filmStatus) +
       '</select></label>' +
       '<label class="field">Sort films<select id="collectionFilmSort">' + options(filmSortOptions,filmSort) +
       '</select></label></div></div>';
