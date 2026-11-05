@@ -82,7 +82,8 @@
     return {
       total: records.length,
       completed: records.filter(f => f.tmdbId && f.type && f.type !== "unknown").length,
-      pending: records.filter(f => !f.tmdbId && f.tmdbStatus !== "review").length,
+      pending: records.filter(f => !f.tmdbId && f.tmdbStatus !== "review" && f.tmdbStatus !== "manual").length,
+      manual: records.filter(f => !f.tmdbId && f.tmdbStatus === "manual").length,
       review: records.filter(f => !f.tmdbId && f.tmdbStatus === "review").length,
       repair: records.filter(f => f.tmdbId && (!f.type || f.type === "unknown")).length,
       excluded: state.records.filter(f => f.excluded).length
@@ -94,8 +95,8 @@
     const p = getProgress();
     target.innerHTML =
       '<div class="stat-grid">' + [
-        ["Enriched", p.completed], ["Not yet tried", p.pending],
-        ["Needs review", p.review], ["Incomplete match", p.repair]
+        ["Enriched via TMDB", p.completed], ["Manually catalogued", p.manual],
+        ["Not yet tried", p.pending], ["Needs review", p.review], ["Incomplete match", p.repair]
       ].map(([label,n]) => '<div class="stat"><div class="label">' + escape(label) + '</div><div class="value">' + n + '</div></div>').join("") +
       '</div><p class="hint">Of ' + p.total + ' active entries, ' + p.excluded +
       ' separately excluded. These counts include TV and other hidden categories. Missing posters alone do not imply an incomplete match; TMDB sometimes has no poster.</p>';
@@ -115,11 +116,12 @@
     holder.innerHTML = '<div class="between spaced"><h3 style="margin:0">Needs manual review: ' + items.length +
       '</h3><span class="muted small">From all imported titles, including hidden types</span></div>' +
       (items.length
-        ? '<p class="hint">These titles were not matched automatically. Click <strong>Review</strong>, search for the right film (try an alternate or original title), select the correct result, and save.</p>' +
+        ? '<p class="hint">These titles were not matched automatically. Choose <strong>Review on TMDB</strong> to link the right result, or <strong>Resolve manually</strong> to keep a standalone film without a TMDB match.</p>' +
           '<div class="stack">' + items.slice(0,100).map(f =>
             '<div class="between" style="border-bottom:1px solid var(--border);padding:9px 0">' +
             '<div><strong>' + escape(f.title) + '</strong> <span class="muted">(' + escape(f.year || "year unknown") + ')</span></div>' +
-            '<span style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="button button-sm" data-review-id="' + escape(f.id) + '">Review</button>' +
+            '<span style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="button button-sm" data-review-id="' + escape(f.id) + '">Review on TMDB</button>' +
+            '<button type="button" class="button button-sm" data-manual-id="' + escape(f.id) + '">Resolve manually</button>' +
             '<button type="button" class="button button-sm" data-exclude-id="' + escape(f.id) + '">Exclude (episode)</button></span></div>'
           ).join("") + '</div>' +
           (items.length > 100 ? '<p class="hint">Showing the first 100. More will appear as you resolve these.</p>' : '')
@@ -130,6 +132,9 @@
         const search = document.querySelector("#tmdbSearchButton");
         if (search) search.click();
       });
+    });
+    holder.querySelectorAll("[data-manual-id]").forEach(button => {
+      button.addEventListener("click", () => openEditor(button.dataset.manualId, true));
     });
     holder.querySelectorAll("[data-exclude-id]").forEach(button => {
       button.addEventListener("click", () => {
@@ -203,7 +208,7 @@
         ? !!f.tmdbId && (!f.type || f.type === "unknown")
         : matchesMode === "review"
           ? !f.tmdbId && f.tmdbStatus === "review"
-          : !f.tmdbId && f.tmdbStatus !== "review"
+          : !f.tmdbId && f.tmdbStatus !== "review" && f.tmdbStatus !== "manual"
     )).slice(0,25);
     if (!targets.length) {
       feedback.textContent = matchesMode === "pending"
@@ -268,7 +273,7 @@
       refreshReviewQueue();
     }
   }
-  function setupEditor(filmId) {
+  function setupEditor(filmId, manualRequested = false) {
     const form = document.querySelector("#filmForm");
     if (!form || form.querySelector("#tmdbSearchButton")) return;
     const p = document.createElement("div");
@@ -280,6 +285,12 @@
       '<div id="tmdbEditorResults" aria-live="polite"></div>';
     const actions = form.querySelector(".modal-actions");
     if (actions) actions.before(p); else form.append(p);
+    if (manualRequested) {
+      const note = document.createElement("div");
+      note.className = "notice";
+      note.innerHTML = "<strong>Manual cataloguing:</strong> Fill in the release year, film type, and any credits you know, then click Save changes. The film stays as one entry with its existing rating. No TMDB ID will be assigned.";
+      p.prepend(note);
+    }
     const input = p.querySelector("#tmdbTitleQuery");
     input.value = form.elements.namedItem("title").value;
     p.querySelector("#tmdbSearchButton").onclick = async () => {
@@ -326,12 +337,22 @@
     const originalSubmit = form.onsubmit;
     form.onsubmit = function(event) {
       const pending = currentEditor;
+      if (manualRequested && !pending && form.elements.namedItem("type").value === "unknown") {
+        event.preventDefault();
+        alert("Please choose the film type before resolving it manually.");
+        return;
+      }
       const previousIds = new Set(state.records.map(f => f.id));
       originalSubmit.call(form, event);
+      const item = filmId
+        ? state.records.find(f => f.id === filmId)
+        : state.records.find(f => !previousIds.has(f.id));
+      if (manualRequested && !pending && item) {
+        item.tmdbStatus = "manual";
+        save();
+        render();
+      }
       if (pending) {
-        const item = filmId
-          ? state.records.find(f => f.id === filmId)
-          : state.records.find(f => !previousIds.has(f.id));
         if (item) {
           Object.assign(item, pending);
           save();
@@ -344,6 +365,6 @@
   const renderOld=render;
   render=function(){renderOld();panel();};
   const editorOld=openEditor;
-  openEditor=function(filmId){currentEditor=null;editorOld(filmId);setupEditor(filmId);};
+  openEditor=function(filmId, manualRequested = false){currentEditor=null;editorOld(filmId);setupEditor(filmId, manualRequested);};
   panel();
 })();
