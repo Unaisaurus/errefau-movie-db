@@ -320,7 +320,7 @@
               // except that a missing year can safely be filled in.
               const canonicalTitle = String(details.title || details.name || choice.title || "").trim();
               const date = String(details.release_date || details.first_air_date || choice.release_date || "");
-              const tmdbYear = /^\\d{4}/.test(date) ? date.slice(0, 4) : "";
+              const tmdbYear = /^\d{4}/.test(date) ? date.slice(0, 4) : "";
               const titleField = form.elements.namedItem("title");
               const yearField = form.elements.namedItem("year");
               if (!filmId && titleField && canonicalTitle) titleField.value = canonicalTitle;
