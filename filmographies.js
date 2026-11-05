@@ -203,6 +203,23 @@
     document.querySelectorAll("[data-filmography-watchlist]").forEach(el=>el.onclick=()=>addToWatchlist(Number(el.dataset.filmographyWatchlist),el));
     document.querySelectorAll("[data-filmography-edit]").forEach(el=>el.onclick=()=>openEditor(el.dataset.filmographyEdit));
   }
+  window.FilmAtlasFilmographies = {
+    openSearch(name,role) {
+      kind = role === "actor" ? "actor" : "director";
+      query = String(name || "").trim();
+      selected = null;
+      credits = [];
+      results = [];
+      failure = "";
+      loading = false;
+      requestSerial++;
+      state.page = "filmographies";
+      state.group = null;
+      render();
+      if (query.length >= 2) searchPerson();
+      window.scrollTo(0,0);
+    }
+  };
   const oldRender=render;
   render=function() { oldRender(); if(state.page==="filmographies")redraw(); };
 })();
