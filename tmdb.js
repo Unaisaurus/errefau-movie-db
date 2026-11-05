@@ -313,6 +313,18 @@
             target.textContent = "Loading credits for " + choice.title + "…";
             try {
               const details = await call({ mode: "details", media: choice.media_type, id: String(choice.id) });
+              const matchAlreadyLogged = findDuplicateFilm({
+                tmdbId: Number(details.id), tmdbMedia: choice.media_type,
+                title: details.title || details.name || choice.title,
+                year: String(details.release_date || details.first_air_date || choice.release_date || "").slice(0,4)
+              }, filmId);
+              if (matchAlreadyLogged) {
+                currentEditor = null;
+                target.innerHTML = '<div class="notice"><strong>Already logged:</strong> ' +
+                  escape(matchAlreadyLogged.title) + ' (' + escape(matchAlreadyLogged.year || "year unknown") +
+                  '). No duplicate will be saved. Close this editor and edit the existing entry instead.</div>';
+                return;
+              }
               const fields = toFields(details, choice.media_type);
               // Selecting a TMDB result should complete the basic movie fields too.
               // A new entry takes the canonical TMDB title/year. When editing an
@@ -354,8 +366,24 @@
         alert("Please choose the film type before resolving it manually.");
         return;
       }
+      // Check the chosen TMDB ID before the base form creates/edits a record.
+      // The base form also checks title/year/URI, so both paths are protected.
+      if (pending) {
+        const collision = findDuplicateFilm({
+          tmdbId: pending.tmdbId, tmdbMedia: pending.tmdbMedia,
+          title: form.elements.namedItem("title").value.trim(),
+          year: form.elements.namedItem("year").value.trim(),
+          uri: form.elements.namedItem("uri").value.trim()
+        }, filmId);
+        if (collision) {
+          event.preventDefault();
+          reportDuplicateFilm(collision);
+          return false;
+        }
+      }
       const previousIds = new Set(state.records.map(f => f.id));
-      originalSubmit.call(form, event);
+      const saved = originalSubmit.call(form, event);
+      if (saved === false) return false;
       const item = filmId
         ? state.records.find(f => f.id === filmId)
         : state.records.find(f => !previousIds.has(f.id));
