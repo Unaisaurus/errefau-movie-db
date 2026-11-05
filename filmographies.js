@@ -61,8 +61,8 @@
     const watched = allCredits.filter(c => statusOf(c) === "watched");
     const watchlist = allCredits.filter(c => statusOf(c) === "watchlist");
     let filtered = allCredits.filter(c => show === "all" || statusOf(c) === show);
-    filtered.sort((a,b) => sort === "title"
-      ? a.title.localeCompare(b.title)
+    filtered.sort((a,b) => sort === "title" || sort === "title_za"
+      ? (sort === "title_za" ? -1 : 1) * a.title.localeCompare(b.title)
       : sort === "oldest"
       ? (year(a) || "9999").localeCompare(year(b) || "9999") || a.title.localeCompare(b.title)
       : (year(b) || "0000").localeCompare(year(a) || "0000") || a.title.localeCompare(b.title));
@@ -74,8 +74,9 @@
       ? '<div class="film-grid">' + filtered.map(c => {
           const film = localByTmdb(c.id);
           const status = statusOf(c);
-          return '<div class="film" style="cursor:default">' +
+          return '<div class="film" style="cursor:default;position:relative">' +
             '<div class="poster">' + poster(c) + '<span class="year-badge">' + esc(year(c) || "—") + '</span></div>' +
+            (film ? '<button type="button" class="favorite-toggle' + (film.favorite ? ' is-favorite' : '') + '" style="top:9px;left:9px" data-filmography-favorite="' + esc(film.id) + '" aria-label="Toggle favorite for ' + esc(film.title) + '" aria-pressed="' + (!!film.favorite) + '">' + (film.favorite ? '♥' : '♡') + '</button>' : '') +
             '<div class="film-details"><div class="film-title">' + esc(c.title) + '</div>' +
             '<div class="film-sub">' + (status === "watched" ? '✓ Watched' : status === "watchlist" ? '◷ Watchlist' : 'Not watched') + '</div>' +
             '<div class="film-rating">' + (film?.watched ? (film.rating != null ? '★ ' + esc(film.rating) + ' / 5' : 'Watched · unrated') : '') + '</div>' +
@@ -99,7 +100,7 @@
       '<div class="panel"><div class="controls">' +
       '<label class="field">Show<select id="filmographyStatus">' + options(types,show) + '</select></label>' +
       '<label class="field">Sort<select id="filmographySort">' +
-      options([["year","Newest first"],["oldest","Oldest first"],["title","Title A–Z"]],sort) + '</select></label>' +
+      options([["year","Newest first"],["oldest","Oldest first"],["title","Title A–Z"],["title_za","Title Z–A"]],sort) + '</select></label>' +
       '<label class="check"><input type="checkbox" id="filmographyAdult" ' + (showAdult ? "checked" : "") + '> Include adult-tagged credits</label>' +
       '</div></div>' +
       '<div class="between"><span class="muted small">' + filtered.length + ' titles shown</span>' +
@@ -202,6 +203,7 @@
     if(adult)adult.onchange=()=>{showAdult=adult.checked;redraw();};
     document.querySelectorAll("[data-filmography-watchlist]").forEach(el=>el.onclick=()=>addToWatchlist(Number(el.dataset.filmographyWatchlist),el));
     document.querySelectorAll("[data-filmography-edit]").forEach(el=>el.onclick=()=>openEditor(el.dataset.filmographyEdit));
+    document.querySelectorAll("[data-filmography-favorite]").forEach(el=>el.onclick=()=>{const item=state.records.find(f=>f.id===el.dataset.filmographyFavorite);if(!item)return;item.favorite=!item.favorite;save();redraw();});
   }
   window.FilmAtlasFilmographies = {
     openSearch(name,role) {
