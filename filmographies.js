@@ -160,7 +160,11 @@
   async function addToWatchlist(id,button) {
     const credit=credits.find(x=>Number(x.id)===Number(id));
     if(!credit)return;
-    if(localByTmdb(id)) {toast("This title is already in your library");return;}
+    const already = findDuplicateFilm({
+      tmdbId: credit.id, tmdbMedia: "movie", title: credit.title,
+      year: String(credit.release_date || "").slice(0,4)
+    });
+    if (already) { reportDuplicateFilm(already); return; }
     button.disabled=true;button.textContent="Adding…";
     try {
       const data=await request({mode:"details",media:"movie",id:String(credit.id)});
@@ -181,7 +185,8 @@
         countries:names((data.production_countries||[]).map(x=>({name:x.name}))),
         genres:names(genreList),runtime:data.runtime||null
       };
-      if(state.records.some(x=>x.id===item.id)){toast("Already added");return;}
+      const collision = findDuplicateFilm(item);
+      if (collision) { reportDuplicateFilm(collision); return; }
       state.records.push(item);save();redraw();toast("Added to watchlist: "+item.title);
     }catch(e){button.disabled=false;button.textContent="+ Watchlist";alert("Could not add film: "+e.message);}
   }
