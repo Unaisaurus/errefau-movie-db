@@ -35,12 +35,15 @@
   }
   function selectMatch(f, list) {
     const title = normalized(f.title), yr = Number(f.year);
+    const shortened = searchTitle(f.title);
+    const shortTitle = shortened.length < String(f.title || "").trim().length ? normalized(shortened) : null;
     // We accept a TV series ONLY when its title and year also match uniquely.
     // Episodes are not automatically mapped to the parent series.
     const candidates = list.filter(x =>
       (x.media_type === "movie" || x.media_type === "tv") &&
       Number(x.id) > 0 &&
-      (normalized(x.title) === title || normalized(x.original_title) === title) &&
+      (normalized(x.title) === title || normalized(x.original_title) === title ||
+        (shortTitle && (normalized(x.title) === shortTitle || normalized(x.original_title) === shortTitle))) &&
       yr > 1800 && Math.abs(Number(yearOf(x)) - yr) <= 1
     );
     const unique = [...new Map(candidates.map(x=>[x.media_type+":"+x.id,x])).values()];
