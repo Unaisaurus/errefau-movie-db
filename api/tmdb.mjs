@@ -34,6 +34,17 @@ export default async function handler(req, res) {
     query.set("query", term);
     query.set("include_adult", "false");
     query.set("page", "1");
+  } else if (mode === "search_person") {
+    const term = (params.get("query") || "").trim();
+    if (term.length < 2 || term.length > 120) return res.status(400).json({ error: "Person search query must be between 2 and 120 characters." });
+    path = "/3/search/person";
+    query.set("query", term);
+    query.set("include_adult", "false");
+    query.set("page", "1");
+  } else if (mode === "person_credits") {
+    const personId = params.get("id") || "";
+    if (!/^[1-9][0-9]{0,9}$/.test(personId)) return res.status(400).json({ error: "Invalid person identifier." });
+    path = "/3/person/" + personId + "/movie_credits";
   } else if (mode === "details") {
     const media = params.get("media");
     const id = params.get("id") || "";
@@ -67,6 +78,32 @@ export default async function handler(req, res) {
         release_date: x.release_date || x.first_air_date || "", poster_path: x.poster_path || "",
         overview: x.overview || ""
       })) });
+    }
+    if (mode === "search_person") {
+      return res.status(200).json({
+        results: (Array.isArray(data.results) ? data.results : []).slice(0, 20).map(person => ({
+          id: person.id, name: person.name, known_for_department: person.known_for_department || "",
+          profile_path: person.profile_path || "",
+          known_for: (person.known_for || []).slice(0, 3).map(x => x.title || x.name).filter(Boolean)
+        }))
+      });
+    }
+    if (mode === "person_credits") {
+      const clean = x => ({
+        id: x.id,
+        title: x.title || x.original_title || "",
+        original_title: x.original_title || "",
+        release_date: x.release_date || "",
+        poster_path: x.poster_path || "",
+        adult: !!x.adult, video: !!x.video,
+        job: x.job || "", department: x.department || "",
+        character: x.character || ""
+      });
+      return res.status(200).json({
+        id: Number(params.get("id")),
+        cast: (Array.isArray(data.cast) ? data.cast : []).map(clean),
+        crew: (Array.isArray(data.crew) ? data.crew : []).map(clean)
+      });
     }
     return res.status(200).json(data);
   } catch (e) {
